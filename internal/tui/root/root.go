@@ -1,13 +1,19 @@
 package root
 
 import (
-	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-var width = 96
+var (
+	width  = 96
+	height = 30
+)
 
 type RootModel struct {
 	HeaderModel tea.Model
@@ -31,13 +37,32 @@ func NewRootModel(version string) RootModel {
 
 func (m RootModel) Init() tea.Cmd {
 	// Just return `nil`, which means "no I/O right now, please."
-	return nil
+	return checkServer
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	log.Printf("%#v", msg)
+
 	switch msg := msg.(type) {
+
+	// update window size
 	case tea.WindowSizeMsg:
-		width = msg.Width
+		{
+			width = msg.Width
+			height = msg.Height
+		}
+
+	// handle HttpResults
+	case HttpResult:
+		{
+			if msg.err != nil {
+				log.Print("error!!")
+			} else {
+				b, err := io.ReadAll(msg.res.Body)
+				log.Printf("%+v %+v", string(b), err)
+				m.HeaderModel.Update(msg)
+			}
+		}
 
 	// key press
 	case tea.KeyMsg:
@@ -78,31 +103,37 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m RootModel) View() string {
 
-	// The header
-	s := "What should we buy at the market?\n\n"
+	headerView := m.HeaderModel.View()
 
-	// Iterate over our choices
-	for i, choice := range m.choices {
+	bodyBox := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		Width(width - 2).
+		Height(height - lipgloss.Height(headerView) - 2).
+		Render(m.body())
 
-		// Is the cursor pointing at this choice?
-		cursor := " " // no cursor
-		if m.cursor == i {
-			cursor = ">" // cursor!
-		}
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		headerView,
+		bodyBox,
+	)
+}
 
-		// Is this choice selected?
-		checked := " " // not selected
-		if _, ok := m.selected[i]; ok {
-			checked = "x" // selected!
-		}
+const url = "https://charm.sh/"
 
-		// Render the row
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+type HttpResult struct {
+	res *http.Response
+	err error
+}
+
+func checkServer() tea.Msg {
+	c := &http.Client{
+		Timeout: 10 * time.Second,
 	}
+	res, err := c.Get(url)
+	if err != nil {
+		return HttpResult{err: err}
+	}
+	defer res.Body.Close()
 
-	// The footer
-	s += "\nPress q to quit.\n"
-
-	// Send the UI for rendering
-	return lipgloss.JoinVertical(lipgloss.Left, m.HeaderModel.View(), s)
+	return HttpResult{res: res}
 }
