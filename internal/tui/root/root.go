@@ -17,31 +17,29 @@ var (
 
 type RootModel struct {
 	HeaderModel tea.Model
-	choices     []string         // items on the to-do list
-	cursor      int              // which to-do list item our cursor is pointing at
-	selected    map[int]struct{} // which to-do items are selected
+	loginDialog tea.Model
 }
 
 func NewRootModel(version string) RootModel {
 	return RootModel{
 		HeaderModel: NewHeaderModel(version),
-		// Our to-do list is a grocery list
-		choices: []string{"Buy carrots", "Buy celery", "Buy kohlrabi"},
-
-		// A map which indicates which choices are selected. We're using
-		// the  map like a mathematical set. The keys refer to the indexes
-		// of the `choices` slice, above.
-		selected: make(map[int]struct{}),
+		loginDialog: NewLoginDialog(),
 	}
 }
 
 func (m RootModel) Init() tea.Cmd {
-	// Just return `nil`, which means "no I/O right now, please."
 	return checkServer
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmds := []tea.Cmd{}
+
 	log.Printf("%#v", msg)
+
+	// update login dialog
+	updatedLoginModel, resultMsg := m.loginDialog.Update(msg)
+	m.loginDialog = updatedLoginModel
+	cmds = append(cmds, resultMsg)
 
 	switch msg := msg.(type) {
 
@@ -74,42 +72,35 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// The "up" and "k" keys move the cursor up
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
 
 		// The "down" and "j" keys move the cursor down
 		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor++
-			}
 
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
 		case "enter", " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
-			}
+
 		}
 	}
 
-	// Return the updated RootModel to the Bubble Tea runtime for processing.
-	// Note that we're not returning a command.
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 func (m RootModel) View() string {
 
 	headerView := m.HeaderModel.View()
 
+	body := m.loginDialog.View()
+
+	if body == "" {
+		body = m.body()
+	}
+
 	bodyBox := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Width(width - 2).
 		Height(height - lipgloss.Height(headerView) - 2).
-		Render(m.body())
+		Render(body)
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
