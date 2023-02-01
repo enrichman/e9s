@@ -2,8 +2,6 @@ package root
 
 import (
 	"log"
-	"net/http"
-	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,12 +11,13 @@ import (
 )
 
 type BodyModel struct {
-	Namespaces []*client.Namespace
+	EpinioClient *client.Client
+	Namespaces   []*client.Namespace
 
 	table table.Model
 }
 
-func NewBodyModel() *BodyModel {
+func NewBodyModel(epinioClient *client.Client) *BodyModel {
 
 	t := table.New(
 		table.WithFocused(true),
@@ -34,7 +33,10 @@ func NewBodyModel() *BodyModel {
 
 	t.SetStyles(s)
 
-	return &BodyModel{table: t}
+	return &BodyModel{
+		EpinioClient: epinioClient,
+		table:        t,
+	}
 }
 
 func (m *BodyModel) Init() tea.Cmd {
@@ -75,7 +77,7 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				log.Printf("%+v", msg.Err.Error())
 				break
 			}
-			cmds = append(cmds, cmd.NewAPINamespaceGetCmd())
+			cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
 		}
 
 	case tea.KeyMsg:
@@ -88,20 +90,9 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table.MoveDown(1)
 
 		case tea.KeyCtrlD.String():
-			insecureTransport := http.DefaultTransport.(*http.Transport).Clone()
-			insecureTransport.TLSClientConfig.InsecureSkipVerify = true
-
-			c := &http.Client{
-				Timeout:   10 * time.Second,
-				Transport: insecureTransport,
-			}
-
-			ep := client.NewClient(c, "https://epinio.172.21.0.4.omg.howdoi.website/api/v1")
-			ep.Username = "admin"
-			ep.Password = "password"
 
 			selectedNamespace := m.table.SelectedRow()[0]
-			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(ep.Namespace, selectedNamespace))
+			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(m.EpinioClient.Namespaces, selectedNamespace))
 
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.

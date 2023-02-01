@@ -16,7 +16,7 @@ type Client struct {
 	Username   string
 	Password   string
 
-	Namespace *NamespaceService
+	Namespaces *NamespaceService
 }
 
 func NewClient(httpClient *http.Client, baseURL string) *Client {
@@ -25,7 +25,7 @@ func NewClient(httpClient *http.Client, baseURL string) *Client {
 		BaseURL:    baseURL,
 	}
 
-	c.Namespace = &NamespaceService{c}
+	c.Namespaces = &NamespaceService{c}
 
 	return c
 }

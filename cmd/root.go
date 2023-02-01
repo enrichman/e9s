@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"net/http"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/enrichman/e9s/internal/tui/root"
+	"github.com/enrichman/e9s/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -33,8 +37,20 @@ func NewRootCmd() *cobra.Command {
 }
 
 func rootRunE(cmd *cobra.Command, args []string) error {
+	insecureTransport := http.DefaultTransport.(*http.Transport).Clone()
+	insecureTransport.TLSClientConfig.InsecureSkipVerify = true
+
+	c := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: insecureTransport,
+	}
+
+	ep := client.NewClient(c, "https://epinio.172.21.0.4.omg.howdoi.website/api/v1")
+	ep.Username = "admin"
+	ep.Password = "password"
+
 	p := tea.NewProgram(
-		root.NewRootModel(Version),
+		root.NewRootModel(ep, Version),
 		tea.WithAltScreen(),
 	)
 

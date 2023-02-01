@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/enrichman/e9s/internal/tui/cmd"
+	"github.com/enrichman/e9s/pkg/client"
 )
 
 var (
@@ -14,21 +15,25 @@ var (
 )
 
 type RootModel struct {
+	EpinioClient *client.Client
+
 	HeaderModel tea.Model
 	BodyModel   tea.Model
 	loginDialog tea.Model
 }
 
-func NewRootModel(version string) RootModel {
+func NewRootModel(epinioClient *client.Client, version string) RootModel {
 	return RootModel{
+		EpinioClient: epinioClient,
+
 		HeaderModel: NewHeaderModel(version),
-		BodyModel:   NewBodyModel(),
+		BodyModel:   NewBodyModel(epinioClient),
 		loginDialog: NewLoginDialog(),
 	}
 }
 
 func (m RootModel) Init() tea.Cmd {
-	return cmd.NewAPINamespaceGetCmd()
+	return cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces)
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
