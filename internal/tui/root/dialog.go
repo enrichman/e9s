@@ -29,6 +29,8 @@ func (m *loginDialog) Init() tea.Cmd {
 }
 
 func (m *loginDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	log.Printf("loginDialog/Update, msg: %#v", msg)
+
 	cmds := []tea.Cmd{}
 
 	if !m.visible {

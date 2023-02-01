@@ -1,18 +1,16 @@
 package root
 
 import (
-	"encoding/json"
-	"io"
 	"log"
-	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/enrichman/e9s/internal/tui/cmd"
 )
 
 type BodyModel struct {
-	Namespaces []*Namespace
+	Namespaces []*cmd.Namespace
 
 	table table.Model
 }
@@ -40,57 +38,41 @@ func (m *BodyModel) Init() tea.Cmd {
 	return nil
 }
 
-type Namespace struct {
-	Meta Meta
-}
-
-type Meta struct {
-	Name      string
-	CreatedAt *time.Time
-}
-
 func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	log.Printf("BodyModel/Update, msg: %#v", msg)
+
+	cmds := []tea.Cmd{}
+
 	switch msg := msg.(type) {
 
-	// handle HttpResults
-	case HttpResult:
+	case cmd.APINamespaceGetMsg:
 		{
-			if msg.err != nil {
-				log.Printf("%+v", msg.err.Error())
-			} else {
-				b, err := io.ReadAll(msg.res.Body)
-				if err != nil {
-					log.Printf("%+v", err.Error())
-					break
-				}
-				log.Print(string(b))
+			m.Namespaces = msg.Result
 
-				var namespaces []*Namespace
-				err = json.Unmarshal(b, &namespaces)
-				if err != nil {
-					log.Printf("%+v", err.Error())
-					break
-				}
-
-				m.Namespaces = namespaces
-
-				columns := []table.Column{
-					{Title: "NAME", Width: 20},
-					{Title: "CREATED", Width: 40},
-					{Title: "APPLICATIONS", Width: 14},
-					{Title: "CONFIGURATIONS", Width: width - 84},
-				}
-				m.table.SetColumns(columns)
-
-				rows := []table.Row{}
-				for _, ns := range namespaces {
-					rows = append(rows, table.Row{ns.Meta.Name, ns.Meta.CreatedAt.String(), "", ""})
-				}
-
-				m.table.SetHeight(6)
-
-				m.table.SetRows(rows)
+			columns := []table.Column{
+				{Title: "NAME", Width: 20},
+				{Title: "CREATED", Width: 40},
+				{Title: "APPLICATIONS", Width: 14},
+				{Title: "CONFIGURATIONS", Width: width - 84},
 			}
+			m.table.SetColumns(columns)
+
+			rows := []table.Row{}
+			for _, ns := range m.Namespaces {
+				rows = append(rows, table.Row{ns.Meta.Name, ns.Meta.CreatedAt.String(), "", ""})
+			}
+			m.table.SetRows(rows)
+
+			m.table.SetHeight(6)
+		}
+
+	case cmd.APINamespaceDeleteMsg:
+		{
+			if msg.Err != nil {
+				log.Printf("%+v", msg.Err.Error())
+				break
+			}
+			cmds = append(cmds, cmd.NewAPINamespaceGetCmd())
 		}
 
 	case tea.KeyMsg:
@@ -102,6 +84,10 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			m.table.MoveDown(1)
 
+		case tea.KeyCtrlD.String():
+			selectedNamespace := m.table.SelectedRow()[0]
+			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(selectedNamespace))
+
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
 		case "enter", " ":
@@ -111,7 +97,7 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 func (m *BodyModel) View() string {

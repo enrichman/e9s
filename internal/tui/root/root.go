@@ -2,11 +2,10 @@ package root
 
 import (
 	"log"
-	"net/http"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/enrichman/e9s/internal/tui/cmd"
 )
 
 var (
@@ -29,13 +28,13 @@ func NewRootModel(version string) RootModel {
 }
 
 func (m RootModel) Init() tea.Cmd {
-	return checkServer
+	return cmd.NewAPINamespaceGetCmd()
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmds := []tea.Cmd{}
+	log.Printf("RootModel/Update, msg: %#v", msg)
 
-	log.Printf("%#v", msg)
+	cmds := []tea.Cmd{}
 
 	// update login dialog
 	updatedLoginModel, resultMsg := m.loginDialog.Update(msg)
@@ -54,18 +53,6 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		{
 			width = msg.Width
 			height = msg.Height
-		}
-
-	// handle HttpResults
-	case HttpResult:
-		{
-			if msg.err != nil {
-				log.Printf("%+v", msg.err.Error())
-			} else {
-				// b, err := io.ReadAll(msg.res.Body)
-				// log.Printf("%+v %+v", string(b), err)
-				// m.HeaderModel.Update(msg)
-			}
 		}
 
 	// key press
@@ -115,32 +102,4 @@ func (m RootModel) View() string {
 		headerView,
 		bodyBox,
 	)
-}
-
-type HttpResult struct {
-	res *http.Response
-	err error
-}
-
-func checkServer() tea.Msg {
-	insecureTransport := http.DefaultTransport.(*http.Transport).Clone()
-	insecureTransport.TLSClientConfig.InsecureSkipVerify = true
-
-	c := &http.Client{
-		Timeout:   10 * time.Second,
-		Transport: insecureTransport,
-	}
-
-	req, err := http.NewRequest(http.MethodGet, "https://epinio.172.21.0.4.omg.howdoi.website/api/v1/namespaces", nil)
-	if err != nil {
-		return HttpResult{err: err}
-	}
-	req.SetBasicAuth("admin", "password")
-
-	res, err := c.Do(req)
-	if err != nil {
-		return HttpResult{err: err}
-	}
-
-	return HttpResult{res: res}
 }
