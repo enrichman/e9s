@@ -8,6 +8,8 @@ import (
 	"github.com/enrichman/e9s/pkg/client"
 )
 
+type TickMsg struct{}
+
 type NamespaceService interface {
 	Get(ctx context.Context) ([]*client.Namespace, error)
 	Delete(ctx context.Context, name string) (client.OkResponse, error)

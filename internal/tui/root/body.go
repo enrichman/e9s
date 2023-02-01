@@ -49,6 +49,11 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds := []tea.Cmd{}
 
 	switch msg := msg.(type) {
+	case cmd.TickMsg:
+		{
+			// check if is already loading
+			cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
+		}
 
 	case cmd.APINamespaceGetMsg:
 		{
@@ -90,7 +95,6 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table.MoveDown(1)
 
 		case tea.KeyCtrlD.String():
-
 			selectedNamespace := m.table.SelectedRow()[0]
 			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(m.EpinioClient.Namespaces, selectedNamespace))
 

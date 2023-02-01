@@ -2,6 +2,7 @@ package root
 
 import (
 	"log"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -32,8 +33,14 @@ func NewRootModel(epinioClient *client.Client, version string) RootModel {
 	}
 }
 
+func doTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return cmd.TickMsg{}
+	})
+}
+
 func (m RootModel) Init() tea.Cmd {
-	return cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces)
+	return doTick()
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -52,6 +59,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, resultMsg)
 
 	switch msg := msg.(type) {
+
+	case cmd.TickMsg:
+		log.Print("ticking")
+		cmds = append(cmds, doTick())
 
 	// update window size
 	case tea.WindowSizeMsg:
