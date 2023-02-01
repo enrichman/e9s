@@ -1,7 +1,6 @@
 package root
 
 import (
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -17,12 +16,14 @@ var (
 
 type RootModel struct {
 	HeaderModel tea.Model
+	BodyModel   tea.Model
 	loginDialog tea.Model
 }
 
 func NewRootModel(version string) RootModel {
 	return RootModel{
 		HeaderModel: NewHeaderModel(version),
+		BodyModel:   NewBodyModel(),
 		loginDialog: NewLoginDialog(),
 	}
 }
@@ -41,6 +42,11 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.loginDialog = updatedLoginModel
 	cmds = append(cmds, resultMsg)
 
+	// update body
+	updatedBodyModel, resultMsg := m.BodyModel.Update(msg)
+	m.BodyModel = updatedBodyModel
+	cmds = append(cmds, resultMsg)
+
 	switch msg := msg.(type) {
 
 	// update window size
@@ -54,11 +60,11 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case HttpResult:
 		{
 			if msg.err != nil {
-				log.Print("error!!")
+				log.Printf("%+v", msg.err.Error())
 			} else {
-				b, err := io.ReadAll(msg.res.Body)
-				log.Printf("%+v %+v", string(b), err)
-				m.HeaderModel.Update(msg)
+				// b, err := io.ReadAll(msg.res.Body)
+				// log.Printf("%+v %+v", string(b), err)
+				// m.HeaderModel.Update(msg)
 			}
 		}
 
@@ -87,20 +93,22 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m RootModel) View() string {
+	dialogView := m.loginDialog.View()
+	if dialogView != "" {
+		return dialogView
+	}
 
 	headerView := m.HeaderModel.View()
 
-	body := m.loginDialog.View()
-
-	if body == "" {
-		body = m.body()
-	}
+	body := m.BodyModel.View()
 
 	bodyBox := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Width(width - 2).
 		Height(height - lipgloss.Height(headerView) - 2).
 		Render(body)
+
+	lipgloss.Place(10, 10, lipgloss.Center, lipgloss.Center, dialogView)
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -109,22 +117,30 @@ func (m RootModel) View() string {
 	)
 }
 
-const url = "https://charm.sh/"
-
 type HttpResult struct {
 	res *http.Response
 	err error
 }
 
 func checkServer() tea.Msg {
+	insecureTransport := http.DefaultTransport.(*http.Transport).Clone()
+	insecureTransport.TLSClientConfig.InsecureSkipVerify = true
+
 	c := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout:   10 * time.Second,
+		Transport: insecureTransport,
 	}
-	res, err := c.Get(url)
+
+	req, err := http.NewRequest(http.MethodGet, "https://epinio.172.21.0.4.omg.howdoi.website/api/v1/namespaces", nil)
 	if err != nil {
 		return HttpResult{err: err}
 	}
-	defer res.Body.Close()
+	req.SetBasicAuth("admin", "password")
+
+	res, err := c.Do(req)
+	if err != nil {
+		return HttpResult{err: err}
+	}
 
 	return HttpResult{res: res}
 }
