@@ -1,7 +1,6 @@
 package root
 
 import (
-	"log"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,23 +17,25 @@ var (
 type RootModel struct {
 	EpinioClient *client.Client
 
-	HeaderModel tea.Model
-	BodyModel   tea.Model
-	loginDialog tea.Model
+	HeaderModel                *HeaderModel
+	BodyModel                  *BodyModel
+	loginDialog                *LoginDialog
+	CreateNamespaceDialogModel *CreateNamespaceDialogModel
 }
 
 func NewRootModel(epinioClient *client.Client, version string) RootModel {
 	return RootModel{
 		EpinioClient: epinioClient,
 
-		HeaderModel: NewHeaderModel(version),
-		BodyModel:   NewBodyModel(epinioClient),
-		loginDialog: NewLoginDialog(),
+		HeaderModel:                NewHeaderModel(version),
+		BodyModel:                  NewBodyModel(epinioClient),
+		loginDialog:                NewLoginDialog(),
+		CreateNamespaceDialogModel: NewCreateNamespaceDialogModel(epinioClient),
 	}
 }
 
 func doTick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
 		return cmd.TickMsg{}
 	})
 }
@@ -44,24 +45,13 @@ func (m RootModel) Init() tea.Cmd {
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	log.Printf("RootModel/Update, msg: %#v", msg)
+	//log.Printf("RootModel/Update, msg: %#v", msg)
 
 	cmds := []tea.Cmd{}
-
-	// update login dialog
-	updatedLoginModel, resultMsg := m.loginDialog.Update(msg)
-	m.loginDialog = updatedLoginModel
-	cmds = append(cmds, resultMsg)
-
-	// update body
-	updatedBodyModel, resultMsg := m.BodyModel.Update(msg)
-	m.BodyModel = updatedBodyModel
-	cmds = append(cmds, resultMsg)
 
 	switch msg := msg.(type) {
 
 	case cmd.TickMsg:
-		log.Print("ticking")
 		cmds = append(cmds, doTick())
 
 	// update window size
@@ -92,13 +82,39 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// update login dialog
+	updatedLoginModel, resultMsg := m.loginDialog.Update(msg)
+	m.loginDialog = updatedLoginModel.(*LoginDialog)
+	cmds = append(cmds, resultMsg)
+
+	// update CreateNamespaceDialogModel
+	updatedNamespaceDialogModel, resultMsg := m.CreateNamespaceDialogModel.Update(msg)
+	m.CreateNamespaceDialogModel = updatedNamespaceDialogModel.(*CreateNamespaceDialogModel)
+	cmds = append(cmds, resultMsg)
+
+	if m.loginDialog.Visible || m.CreateNamespaceDialogModel.Visible {
+		return m, tea.Batch(cmds...)
+	}
+
+	// update body
+	updatedBodyModel, resultMsg := m.BodyModel.Update(msg)
+	m.BodyModel = updatedBodyModel.(*BodyModel)
+	cmds = append(cmds, resultMsg)
+
 	return m, tea.Batch(cmds...)
 }
 
 func (m RootModel) View() string {
-	dialogView := m.loginDialog.View()
-	if dialogView != "" {
-		return dialogView
+	//log.Printf("RootModel/View")
+
+	if m.loginDialog.Visible {
+		dialogView := m.loginDialog.View()
+		return lipgloss.Place(10, 20, lipgloss.Center, lipgloss.Center, dialogView)
+	}
+
+	if m.CreateNamespaceDialogModel.Visible {
+		dialogView := m.CreateNamespaceDialogModel.View()
+		return lipgloss.Place(10, 20, lipgloss.Center, lipgloss.Center, dialogView)
 	}
 
 	headerView := m.HeaderModel.View()
@@ -110,8 +126,6 @@ func (m RootModel) View() string {
 		Width(width - 2).
 		Height(height - lipgloss.Height(headerView) - 2).
 		Render(body)
-
-	lipgloss.Place(10, 10, lipgloss.Center, lipgloss.Center, dialogView)
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,

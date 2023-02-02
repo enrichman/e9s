@@ -11,14 +11,14 @@ type HeaderModel struct {
 	version string
 }
 
-func NewHeaderModel(version string) HeaderModel {
-	return HeaderModel{version: version}
+func NewHeaderModel(version string) *HeaderModel {
+	return &HeaderModel{version: version}
 }
 
-func (m HeaderModel) Init() tea.Cmd                           { return nil }
-func (m HeaderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return m, nil }
+func (m *HeaderModel) Init() tea.Cmd                           { return nil }
+func (m *HeaderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return m, nil }
 
-func (m HeaderModel) View() string {
+func (m *HeaderModel) View() string {
 	w := lipgloss.Width
 
 	logo := logo()

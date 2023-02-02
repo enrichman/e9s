@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"log"
 	"time"
 )
 
@@ -40,19 +39,18 @@ func (s *NamespaceService) Get(ctx context.Context) ([]*Namespace, error) {
 
 func (s *NamespaceService) Delete(ctx context.Context, name string) (OkResponse, error) {
 	res, err := delete(ctx, s.client, "/namespaces/"+name, OkResponse{})
-	log.Printf("NamespaceService/Delete %#v", res)
 	return res, err
 }
 
-// func (s *NamespaceService) Create(ctx context.Context, name string) (gencli.User, error) {
-// 	type userCreateRequest struct {
-// 		Name string `json:"name"`
-// 	}
+func (s *NamespaceService) Create(ctx context.Context, name string) (OkResponse, error) {
+	type namespaceCreateRequest struct {
+		Name string `json:"name"`
+	}
 
-// 	payload := &userCreateRequest{
-// 		Name: name,
-// 	}
+	payload := &namespaceCreateRequest{
+		Name: name,
+	}
 
-// 	userResp, err := post(ctx, s.client, "/users", payload, UserResponse{})
-// 	return makeUser(userResp), err
-// }
+	okResponse, err := post(ctx, s.client, "/namespaces", payload, OkResponse{})
+	return okResponse, err
+}

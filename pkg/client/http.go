@@ -35,7 +35,7 @@ func get[R any](ctx context.Context, c *Client, path string, response R) (R, err
 }
 
 func post[R any](ctx context.Context, c *Client, path string, payload any, response R) (R, error) {
-	return do(ctx, c, http.MethodPost, path, nil, response)
+	return do(ctx, c, http.MethodPost, path, payload, response)
 }
 
 func delete[R any](ctx context.Context, c *Client, path string, response R) (R, error) {

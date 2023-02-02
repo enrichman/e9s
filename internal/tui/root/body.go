@@ -14,7 +14,8 @@ type BodyModel struct {
 	EpinioClient *client.Client
 	Namespaces   []*client.Namespace
 
-	table table.Model
+	table      table.Model
+	loadingGet bool
 }
 
 func NewBodyModel(epinioClient *client.Client) *BodyModel {
@@ -44,7 +45,7 @@ func (m *BodyModel) Init() tea.Cmd {
 }
 
 func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	log.Printf("BodyModel/Update, msg: %#v", msg)
+	//log.Printf("BodyModel/Update, msg: %#v", msg)
 
 	cmds := []tea.Cmd{}
 
@@ -52,11 +53,15 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case cmd.TickMsg:
 		{
 			// check if is already loading
-			cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
+			if !m.loadingGet {
+				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
+				m.loadingGet = true
+			}
 		}
 
 	case cmd.APINamespaceGetMsg:
 		{
+			m.loadingGet = false // GET ended
 			m.Namespaces = msg.Result
 
 			columns := []table.Column{
@@ -83,6 +88,17 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 			cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
+			m.loadingGet = true
+		}
+
+	case cmd.APINamespaceCreateMsg:
+		{
+			if msg.Err != nil {
+				log.Printf("%+v", msg.Err.Error())
+				break
+			}
+			cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
+			m.loadingGet = true
 		}
 
 	case tea.KeyMsg:
@@ -94,6 +110,9 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			m.table.MoveDown(1)
 
+		case "c":
+			cmds = append(cmds, cmd.NewCmd(cmd.ShowCreateNamespaceDialogMsg{}))
+
 		case tea.KeyCtrlD.String():
 			selectedNamespace := m.table.SelectedRow()[0]
 			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(m.EpinioClient.Namespaces, selectedNamespace))
@@ -101,9 +120,10 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The "enter" key and the spacebar (a literal space) toggle
 		// the selected state for the item that the cursor is pointing at.
 		case "enter", " ":
-			selectedRow := m.table.SelectedRow()
-			log.Print(selectedRow[0])
-
+			if len(m.table.Rows()) > 0 {
+				selectedRow := m.table.SelectedRow()
+				log.Print(selectedRow[0])
+			}
 		}
 	}
 

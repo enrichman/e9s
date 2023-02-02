@@ -4,47 +4,36 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/enrichman/e9s/internal/tui/cmd"
+	"github.com/enrichman/e9s/pkg/client"
 )
 
-type LoginDialog struct {
+type CreateNamespaceDialogModel struct {
+	EpinioClient         *client.Client
 	Visible              bool
 	input                textinput.Model
 	cancelButtonSelected bool
 	okButtonSelected     bool
 }
 
-func NewLoginDialog() *LoginDialog {
+func NewCreateNamespaceDialogModel(epinioClient *client.Client) *CreateNamespaceDialogModel {
 	ti := textinput.New()
-	ti.Placeholder = "http://epinio.example.com"
-	ti.Focus()
-	ti.CharLimit = 200
 
-	return &LoginDialog{input: ti}
+	ti.CharLimit = 50
+
+	return &CreateNamespaceDialogModel{
+		EpinioClient: epinioClient,
+		input:        ti,
+	}
 }
 
-func (m *LoginDialog) Init() tea.Cmd {
+func (m *CreateNamespaceDialogModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *LoginDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	//log.Printf("loginDialog/Update, msg: %#v", msg)
-
+func (m *CreateNamespaceDialogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	//log.Printf("CreateNamespaceDialogModel/Update, msg: %+v", msg)
 	cmds := []tea.Cmd{}
-
-	if !m.Visible {
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch msg.String() {
-			case "ctrl+l":
-				m.Visible = true
-			}
-		}
-		return m, nil
-	}
-
-	updatedInput, cmd := m.input.Update(msg)
-	m.input = updatedInput
-	cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
 
@@ -52,29 +41,39 @@ func (m *LoginDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 
-		case "up", "k":
-		case "down", "j":
-
 		case "esc":
 			m.Visible = false
+			m.input.Reset()
 
 		case "left", "right":
 			m.toggle()
 
-		// The "enter" key and the spacebar (a literal space) toggle
-		// the selected state for the item that the cursor is pointing at.
-		case "enter", " ":
+		case "enter":
+			cmds = append(cmds, cmd.NewAPINamespaceCreateCmd(m.EpinioClient.Namespaces, m.input.Value()))
+			m.Visible = false
+			m.input.Reset()
 		}
+
+	case cmd.ShowCreateNamespaceDialogMsg:
+		m.Visible = true
+		m.input.Reset()
+		m.input.Focus()
+		return m, nil
 	}
+
+	updatedInput, inputCmd := m.input.Update(msg)
+	m.input = updatedInput
+	cmds = append(cmds, inputCmd)
+
 	return m, tea.Batch(cmds...)
 }
 
-func (d *LoginDialog) toggle() {
+func (d *CreateNamespaceDialogModel) toggle() {
 	d.cancelButtonSelected = !d.cancelButtonSelected
 	d.okButtonSelected = !d.okButtonSelected
 }
 
-func (d *LoginDialog) View() string {
+func (d *CreateNamespaceDialogModel) View() string {
 	if !d.Visible {
 		return ""
 	}
