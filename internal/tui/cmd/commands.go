@@ -11,6 +11,9 @@ import (
 type TickMsg struct{}
 type ShowCreateNamespaceDialogMsg struct{}
 
+type APINamespaceGetStartMsg struct{}
+type APINamespaceDeleteStartMsg struct{ Name string }
+
 func NewCmd(msg tea.Msg) func() tea.Msg {
 	return func() tea.Msg {
 		return msg
@@ -23,13 +26,9 @@ type NamespaceService interface {
 	Create(ctx context.Context, name string) (client.OkResponse, error)
 }
 
-type APINamespaceGetMsg struct {
+type APINamespaceGetResultMsg struct {
 	Result []*client.Namespace
 	Err    error
-}
-
-func NewAPINamespaceGetMsg(result []*client.Namespace, err error) APINamespaceGetMsg {
-	return APINamespaceGetMsg{Result: result, Err: err}
 }
 
 func NewAPINamespaceGetCmd(namespaceService NamespaceService) func() tea.Msg {
@@ -39,16 +38,13 @@ func NewAPINamespaceGetCmd(namespaceService NamespaceService) func() tea.Msg {
 		if err != nil {
 			log.Printf("Error during NamespaceGetCmd: %v", err.Error())
 		}
-		return NewAPINamespaceGetMsg(namespaces, err)
+		return APINamespaceGetResultMsg{Result: namespaces, Err: err}
 	}
 }
 
-type APINamespaceDeleteMsg struct {
-	Err error
-}
-
-func NewAPINamespaceDeleteMsg(err error) APINamespaceDeleteMsg {
-	return APINamespaceDeleteMsg{Err: err}
+type APINamespaceDeleteResultMsg struct {
+	DeletedNamespace string
+	Err              error
 }
 
 func NewAPINamespaceDeleteCmd(namespaceService NamespaceService, name string) tea.Cmd {
@@ -58,7 +54,7 @@ func NewAPINamespaceDeleteCmd(namespaceService NamespaceService, name string) te
 		if err != nil {
 			log.Printf("Error during NamespaceDeleteCmd: %v", err.Error())
 		}
-		return NewAPINamespaceDeleteMsg(err)
+		return APINamespaceDeleteResultMsg{DeletedNamespace: name, Err: err}
 	}
 }
 

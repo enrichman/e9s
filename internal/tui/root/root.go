@@ -17,18 +17,24 @@ var (
 type RootModel struct {
 	EpinioClient *client.Client
 
-	Header                Header
-	Body                  Body
+	Header Header
+	Body   Body
+	Footer Footer
+
 	LoginDialog           *LoginDialog
 	CreateNamespaceDialog *CreateNamespaceDialog
+
+	currentAction string
 }
 
 func NewRootModel(epinioClient *client.Client, version string) RootModel {
 	return RootModel{
 		EpinioClient: epinioClient,
 
-		Header:                NewHeader(version),
-		Body:                  NewBody(epinioClient),
+		Header: NewHeader(version),
+		Body:   NewBody(epinioClient),
+		Footer: NewFooter("namespaces"),
+
 		LoginDialog:           NewLoginDialog(),
 		CreateNamespaceDialog: NewCreateNamespaceDialog(epinioClient),
 	}
@@ -41,7 +47,9 @@ func doTick() tea.Cmd {
 }
 
 func (m RootModel) Init() tea.Cmd {
-	return doTick()
+	return func() tea.Msg {
+		return cmd.TickMsg{}
+	}
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -71,8 +79,24 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "c":
-			cmds = append(cmds, cmd.NewCmd(cmd.ShowCreateNamespaceDialogMsg{}))
+			if !m.CreateNamespaceDialog.Visible {
+				cmds = append(cmds, cmd.NewCmd(cmd.ShowCreateNamespaceDialogMsg{}))
+			}
 		}
+
+	case cmd.APINamespaceGetStartMsg:
+		cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
+
+	case cmd.APINamespaceGetResultMsg:
+		m.currentAction = ""
+
+	case cmd.APINamespaceDeleteStartMsg:
+		m.currentAction = "Deleting namespace..."
+		cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(m.EpinioClient.Namespaces, msg.Name))
+
+	case cmd.APINamespaceDeleteResultMsg:
+		m.currentAction = ""
+		cmds = append(cmds, cmd.NewCmd(cmd.APINamespaceGetStartMsg{}))
 	}
 
 	// update login dialog
@@ -89,6 +113,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	updatedBody, resultCmds := updateBody(m.Body, msg)
 	m.Body = updatedBody
 	cmds = append(cmds, resultCmds)
+
+	m.Footer = updateFooter(m.Footer, "namespaces", m.currentAction)
 
 	return m, tea.Batch(cmds...)
 }
@@ -120,5 +146,6 @@ func (m RootModel) View() string {
 		lipgloss.Left,
 		headerView,
 		bodyBox,
+		viewFooter(m.Footer),
 	)
 }

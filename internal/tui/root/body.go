@@ -11,15 +11,13 @@ import (
 )
 
 type Body struct {
-	EpinioClient *client.Client
-	Namespaces   []*client.Namespace
+	Namespaces []*client.Namespace
 
 	table      table.Model
 	loadingGet bool
 }
 
 func NewBody(epinioClient *client.Client) Body {
-
 	t := table.New(
 		table.WithFocused(true),
 		table.WithHeight(5),
@@ -35,13 +33,12 @@ func NewBody(epinioClient *client.Client) Body {
 	t.SetStyles(s)
 
 	return Body{
-		EpinioClient: epinioClient,
-		table:        t,
+		table: t,
 	}
 }
 
 func updateBody(body Body, msg tea.Msg) (Body, tea.Cmd) {
-	//log.Printf("BodyModel/Update, msg: %#v", msg)
+	// log.Printf("BodyModel/Update, msg: %+v", msg)
 
 	cmds := []tea.Cmd{}
 
@@ -50,29 +47,36 @@ func updateBody(body Body, msg tea.Msg) (Body, tea.Cmd) {
 		{
 			// check if is already loading
 			if !body.loadingGet {
-				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(body.EpinioClient.Namespaces))
-				body.loadingGet = true
+				cmds = append(cmds, cmd.NewCmd(cmd.APINamespaceGetStartMsg{}))
 			}
 		}
 
-	case cmd.APINamespaceGetMsg:
+	case cmd.APINamespaceGetStartMsg:
+		body.loadingGet = true
+
+	case cmd.APINamespaceGetResultMsg:
 		{
 			body.loadingGet = false // GET ended
 			body.Namespaces = msg.Result
-			body.table = updateTable(body.table, body.Namespaces)
 		}
 
-	case cmd.APINamespaceDeleteMsg:
+	case cmd.APINamespaceDeleteResultMsg:
 		{
 			if msg.Err != nil {
 				log.Printf("%+v", msg.Err.Error())
 				break
 			}
 
-			// check if is already loading
+			updatedNamespaces := []*client.Namespace{}
+			for _, ns := range body.Namespaces {
+				if ns.Meta.Name != msg.DeletedNamespace {
+					updatedNamespaces = append(updatedNamespaces, ns)
+				}
+			}
+			body.Namespaces = updatedNamespaces
+
 			if !body.loadingGet {
-				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(body.EpinioClient.Namespaces))
-				body.loadingGet = true
+				cmds = append(cmds, cmd.NewCmd(cmd.APINamespaceGetStartMsg{}))
 			}
 		}
 
@@ -82,11 +86,8 @@ func updateBody(body Body, msg tea.Msg) (Body, tea.Cmd) {
 				log.Printf("%+v", msg.Err.Error())
 				break
 			}
-
-			// check if is already loading
 			if !body.loadingGet {
-				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(body.EpinioClient.Namespaces))
-				body.loadingGet = true
+				cmds = append(cmds, cmd.NewCmd(cmd.APINamespaceGetStartMsg{}))
 			}
 		}
 
@@ -101,9 +102,11 @@ func updateBody(body Body, msg tea.Msg) (Body, tea.Cmd) {
 
 		case "ctrl+d":
 			selectedNamespace := body.table.SelectedRow()[0]
-			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(body.EpinioClient.Namespaces, selectedNamespace))
+			cmds = append(cmds, cmd.NewCmd(cmd.APINamespaceDeleteStartMsg{Name: selectedNamespace}))
 		}
 	}
+
+	body.table = updateTable(body.table, body.Namespaces)
 
 	return body, tea.Batch(cmds...)
 }
@@ -129,9 +132,6 @@ func updateTable(namespaceTable table.Model, namespaces []*client.Namespace) tab
 }
 
 func viewBody(body Body) string {
-	if len(body.Namespaces) == 0 {
-		return ""
-	}
 	return viewTable(body.table)
 }
 

@@ -99,7 +99,7 @@ func (d *CreateNamespaceDialog) View() string {
 		cancelButton = activeButtonStyle.Render("Maybe")
 	}
 
-	question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render("Are you sure you want to eat marmalade?")
+	question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render("Create namespace")
 	buttons := lipgloss.JoinHorizontal(lipgloss.Top, okButton, cancelButton)
 
 	ui := lipgloss.JoinVertical(
