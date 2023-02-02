@@ -26,7 +26,7 @@ func (m *LoginDialog) Init() tea.Cmd {
 	return nil
 }
 
-func (m *LoginDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *LoginDialog) Update(msg tea.Msg) tea.Cmd {
 	//log.Printf("loginDialog/Update, msg: %#v", msg)
 
 	cmds := []tea.Cmd{}
@@ -39,7 +39,7 @@ func (m *LoginDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Visible = true
 			}
 		}
-		return m, nil
+		return nil
 	}
 
 	updatedInput, cmd := m.input.Update(msg)
@@ -66,7 +66,7 @@ func (m *LoginDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter", " ":
 		}
 	}
-	return m, tea.Batch(cmds...)
+	return tea.Batch(cmds...)
 }
 
 func (d *LoginDialog) toggle() {

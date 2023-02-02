@@ -17,20 +17,20 @@ var (
 type RootModel struct {
 	EpinioClient *client.Client
 
-	HeaderModel                *HeaderModel
-	BodyModel                  *BodyModel
-	loginDialog                *LoginDialog
-	CreateNamespaceDialogModel *CreateNamespaceDialogModel
+	Header                Header
+	Body                  Body
+	LoginDialog           *LoginDialog
+	CreateNamespaceDialog *CreateNamespaceDialog
 }
 
 func NewRootModel(epinioClient *client.Client, version string) RootModel {
 	return RootModel{
 		EpinioClient: epinioClient,
 
-		HeaderModel:                NewHeaderModel(version),
-		BodyModel:                  NewBodyModel(epinioClient),
-		loginDialog:                NewLoginDialog(),
-		CreateNamespaceDialogModel: NewCreateNamespaceDialogModel(epinioClient),
+		Header:                NewHeader(version),
+		Body:                  NewBody(epinioClient),
+		LoginDialog:           NewLoginDialog(),
+		CreateNamespaceDialog: NewCreateNamespaceDialog(epinioClient),
 	}
 }
 
@@ -52,7 +52,9 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case cmd.TickMsg:
-		cmds = append(cmds, doTick())
+		{
+			cmds = append(cmds, doTick())
+		}
 
 	// update window size
 	case tea.WindowSizeMsg:
@@ -64,42 +66,29 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// key press
 	case tea.KeyMsg:
 		switch msg.String() {
-
 		// exit the program.
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		// The "up" and "k" keys move the cursor up
-		case "up", "k":
-
-		// The "down" and "j" keys move the cursor down
-		case "down", "j":
-
-		// The "enter" key and the spacebar (a literal space) toggle
-		// the selected state for the item that the cursor is pointing at.
-		case "enter", " ":
-
+		case "c":
+			cmds = append(cmds, cmd.NewCmd(cmd.ShowCreateNamespaceDialogMsg{}))
 		}
 	}
 
 	// update login dialog
-	updatedLoginModel, resultMsg := m.loginDialog.Update(msg)
-	m.loginDialog = updatedLoginModel.(*LoginDialog)
-	cmds = append(cmds, resultMsg)
+	cmds = append(cmds, m.LoginDialog.Update(msg))
 
 	// update CreateNamespaceDialogModel
-	updatedNamespaceDialogModel, resultMsg := m.CreateNamespaceDialogModel.Update(msg)
-	m.CreateNamespaceDialogModel = updatedNamespaceDialogModel.(*CreateNamespaceDialogModel)
-	cmds = append(cmds, resultMsg)
+	cmds = append(cmds, m.CreateNamespaceDialog.Update(msg))
 
-	if m.loginDialog.Visible || m.CreateNamespaceDialogModel.Visible {
+	if m.LoginDialog.Visible || m.CreateNamespaceDialog.Visible {
 		return m, tea.Batch(cmds...)
 	}
 
 	// update body
-	updatedBodyModel, resultMsg := m.BodyModel.Update(msg)
-	m.BodyModel = updatedBodyModel.(*BodyModel)
-	cmds = append(cmds, resultMsg)
+	updatedBody, resultCmds := updateBody(m.Body, msg)
+	m.Body = updatedBody
+	cmds = append(cmds, resultCmds)
 
 	return m, tea.Batch(cmds...)
 }
@@ -107,19 +96,19 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m RootModel) View() string {
 	//log.Printf("RootModel/View")
 
-	if m.loginDialog.Visible {
-		dialogView := m.loginDialog.View()
+	if m.LoginDialog.Visible {
+		dialogView := m.LoginDialog.View()
 		return lipgloss.Place(10, 20, lipgloss.Center, lipgloss.Center, dialogView)
 	}
 
-	if m.CreateNamespaceDialogModel.Visible {
-		dialogView := m.CreateNamespaceDialogModel.View()
+	if m.CreateNamespaceDialog.Visible {
+		dialogView := m.CreateNamespaceDialog.View()
 		return lipgloss.Place(10, 20, lipgloss.Center, lipgloss.Center, dialogView)
 	}
 
-	headerView := m.HeaderModel.View()
+	headerView := viewHeader(m.Header)
 
-	body := m.BodyModel.View()
+	body := viewBody(m.Body)
 
 	bodyBox := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).

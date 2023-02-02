@@ -10,7 +10,7 @@ import (
 	"github.com/enrichman/e9s/pkg/client"
 )
 
-type BodyModel struct {
+type Body struct {
 	EpinioClient *client.Client
 	Namespaces   []*client.Namespace
 
@@ -18,7 +18,7 @@ type BodyModel struct {
 	loadingGet bool
 }
 
-func NewBodyModel(epinioClient *client.Client) *BodyModel {
+func NewBody(epinioClient *client.Client) Body {
 
 	t := table.New(
 		table.WithFocused(true),
@@ -34,17 +34,13 @@ func NewBodyModel(epinioClient *client.Client) *BodyModel {
 
 	t.SetStyles(s)
 
-	return &BodyModel{
+	return Body{
 		EpinioClient: epinioClient,
 		table:        t,
 	}
 }
 
-func (m *BodyModel) Init() tea.Cmd {
-	return nil
-}
-
-func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func updateBody(body Body, msg tea.Msg) (Body, tea.Cmd) {
 	//log.Printf("BodyModel/Update, msg: %#v", msg)
 
 	cmds := []tea.Cmd{}
@@ -53,32 +49,17 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case cmd.TickMsg:
 		{
 			// check if is already loading
-			if !m.loadingGet {
-				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
-				m.loadingGet = true
+			if !body.loadingGet {
+				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(body.EpinioClient.Namespaces))
+				body.loadingGet = true
 			}
 		}
 
 	case cmd.APINamespaceGetMsg:
 		{
-			m.loadingGet = false // GET ended
-			m.Namespaces = msg.Result
-
-			columns := []table.Column{
-				{Title: "NAME", Width: 20},
-				{Title: "CREATED", Width: 40},
-				{Title: "APPLICATIONS", Width: 14},
-				{Title: "CONFIGURATIONS", Width: width - 84},
-			}
-			m.table.SetColumns(columns)
-
-			rows := []table.Row{}
-			for _, ns := range m.Namespaces {
-				rows = append(rows, table.Row{ns.Meta.Name, ns.Meta.CreatedAt.String(), "", ""})
-			}
-			m.table.SetRows(rows)
-
-			m.table.SetHeight(6)
+			body.loadingGet = false // GET ended
+			body.Namespaces = msg.Result
+			body.table = updateTable(body.table, body.Namespaces)
 		}
 
 	case cmd.APINamespaceDeleteMsg:
@@ -87,8 +68,12 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				log.Printf("%+v", msg.Err.Error())
 				break
 			}
-			cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
-			m.loadingGet = true
+
+			// check if is already loading
+			if !body.loadingGet {
+				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(body.EpinioClient.Namespaces))
+				body.loadingGet = true
+			}
 		}
 
 	case cmd.APINamespaceCreateMsg:
@@ -97,42 +82,59 @@ func (m *BodyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				log.Printf("%+v", msg.Err.Error())
 				break
 			}
-			cmds = append(cmds, cmd.NewAPINamespaceGetCmd(m.EpinioClient.Namespaces))
-			m.loadingGet = true
+
+			// check if is already loading
+			if !body.loadingGet {
+				cmds = append(cmds, cmd.NewAPINamespaceGetCmd(body.EpinioClient.Namespaces))
+				body.loadingGet = true
+			}
 		}
 
 	case tea.KeyMsg:
 		switch msg.String() {
 		// The "up" and "k" keys move the cursor up
 		case "up", "k":
-			m.table.MoveUp(1)
+			body.table.MoveUp(1)
 		// The "down" and "j" keys move the cursor down
 		case "down", "j":
-			m.table.MoveDown(1)
+			body.table.MoveDown(1)
 
-		case "c":
-			cmds = append(cmds, cmd.NewCmd(cmd.ShowCreateNamespaceDialogMsg{}))
-
-		case tea.KeyCtrlD.String():
-			selectedNamespace := m.table.SelectedRow()[0]
-			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(m.EpinioClient.Namespaces, selectedNamespace))
-
-		// The "enter" key and the spacebar (a literal space) toggle
-		// the selected state for the item that the cursor is pointing at.
-		case "enter", " ":
-			if len(m.table.Rows()) > 0 {
-				selectedRow := m.table.SelectedRow()
-				log.Print(selectedRow[0])
-			}
+		case "ctrl+d":
+			selectedNamespace := body.table.SelectedRow()[0]
+			cmds = append(cmds, cmd.NewAPINamespaceDeleteCmd(body.EpinioClient.Namespaces, selectedNamespace))
 		}
 	}
 
-	return m, tea.Batch(cmds...)
+	return body, tea.Batch(cmds...)
 }
 
-func (m *BodyModel) View() string {
-	if len(m.Namespaces) > 0 {
-		return m.table.View() + "\n"
+func updateTable(namespaceTable table.Model, namespaces []*client.Namespace) table.Model {
+	columns := []table.Column{
+		{Title: "NAME", Width: 20},
+		{Title: "CREATED", Width: 40},
+		{Title: "APPLICATIONS", Width: 14},
+		{Title: "CONFIGURATIONS", Width: width - 84},
 	}
-	return "Press q to quit.\n"
+	namespaceTable.SetColumns(columns)
+
+	rows := []table.Row{}
+	for _, ns := range namespaces {
+		rows = append(rows, table.Row{ns.Meta.Name, ns.Meta.CreatedAt.String(), "", ""})
+	}
+	namespaceTable.SetRows(rows)
+
+	namespaceTable.SetHeight(6)
+
+	return namespaceTable
+}
+
+func viewBody(body Body) string {
+	if len(body.Namespaces) == 0 {
+		return ""
+	}
+	return viewTable(body.table)
+}
+
+func viewTable(table table.Model) string {
+	return table.View()
 }

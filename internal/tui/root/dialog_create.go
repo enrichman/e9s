@@ -8,7 +8,7 @@ import (
 	"github.com/enrichman/e9s/pkg/client"
 )
 
-type CreateNamespaceDialogModel struct {
+type CreateNamespaceDialog struct {
 	EpinioClient         *client.Client
 	Visible              bool
 	input                textinput.Model
@@ -16,22 +16,18 @@ type CreateNamespaceDialogModel struct {
 	okButtonSelected     bool
 }
 
-func NewCreateNamespaceDialogModel(epinioClient *client.Client) *CreateNamespaceDialogModel {
+func NewCreateNamespaceDialog(epinioClient *client.Client) *CreateNamespaceDialog {
 	ti := textinput.New()
 
 	ti.CharLimit = 50
 
-	return &CreateNamespaceDialogModel{
+	return &CreateNamespaceDialog{
 		EpinioClient: epinioClient,
 		input:        ti,
 	}
 }
 
-func (m *CreateNamespaceDialogModel) Init() tea.Cmd {
-	return nil
-}
-
-func (m *CreateNamespaceDialogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *CreateNamespaceDialog) Update(msg tea.Msg) tea.Cmd {
 	//log.Printf("CreateNamespaceDialogModel/Update, msg: %+v", msg)
 	cmds := []tea.Cmd{}
 
@@ -58,22 +54,22 @@ func (m *CreateNamespaceDialogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Visible = true
 		m.input.Reset()
 		m.input.Focus()
-		return m, nil
+		return nil
 	}
 
 	updatedInput, inputCmd := m.input.Update(msg)
 	m.input = updatedInput
 	cmds = append(cmds, inputCmd)
 
-	return m, tea.Batch(cmds...)
+	return tea.Batch(cmds...)
 }
 
-func (d *CreateNamespaceDialogModel) toggle() {
+func (d *CreateNamespaceDialog) toggle() {
 	d.cancelButtonSelected = !d.cancelButtonSelected
 	d.okButtonSelected = !d.okButtonSelected
 }
 
-func (d *CreateNamespaceDialogModel) View() string {
+func (d *CreateNamespaceDialog) View() string {
 	if !d.Visible {
 		return ""
 	}
